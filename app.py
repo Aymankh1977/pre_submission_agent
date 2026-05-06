@@ -804,7 +804,7 @@ def build_system_prompt(journal: str) -> str:
         "Accepted papers explicitly identify a knowledge gap (not just a topic), state the RQ formally, "
         "have reproducible methods, honest specific limitations, concrete practice implications, "
         "and an authentic scholarly voice — precise, specific, appropriately hedged, evidence-grounded. "
-        "HUMANISATION: Flag generic, formulaic, or AI-generated passages. "
+        "HUMANISATION: Flag generic/formulaic passages. "
         "Humanised academic writing uses active voice where appropriate, grounds claims in specific "
         "evidence, avoids hollow phrases ('it is worth noting', 'contributes to the literature'), "
         "and maintains a consistent scholarly voice. Benchmark: JDE, EJDE, Medical Teacher, Medical Education. "
@@ -887,22 +887,22 @@ Return ONLY a valid JSON object — no markdown fences, no preamble:
     "discussion": "<overstating? Kirkpatrick level? golden thread? implications concrete?>"
   }},
   "design_specific_assessment": {{
-    "research_gap_statement": "<is the gap explicit and specific, or just a topic area?>",
-    "study_design_justification": "<is the design choice explicitly justified for the RQ?>",
-    "sample_power": "<power calculation present and adequate | N/A for qualitative/theoretical>",
-    "instrument_validity": "<validated tools cited, or new tools explained | N/A if not applicable>",
-    "theoretical_framework": "<named framework applied consistently, or absent>",
-    "positionality": "<researcher positionality declared | N/A for quantitative>",
-    "transferability": "<trustworthiness criteria addressed | N/A for quantitative>",
-    "limitations_quality": "<specific and honest, or generic disclaimers?>",
-    "implications_concreteness": "<do recommendations tell educators what to do differently?>"
+    "research_gap_statement": "<explicit gap or just topic?>",
+    "study_design_justification": "<design justified for RQ?>",
+    "sample_power": "<power calculation adequate | N/A>",
+    "instrument_validity": "<validated tools cited | N/A>",
+    "theoretical_framework": "<named framework applied or absent>",
+    "positionality": "<declared | N/A for quantitative>",
+    "transferability": "<trustworthiness addressed | N/A>",
+    "limitations_quality": "<specific/honest or generic?>",
+    "implications_concreteness": "<concrete educator actions stated?>"
   }},
   "writing_quality_assessment": {{
-    "academic_register": "<appropriate scholarly tone? consistent throughout?>",
-    "humanisation_score": "<authentic voice? specific examples? avoids formulaic phrases?>",
-    "generic_phrases_found": ["<exact quoted phrase that is hollow or generic>"],
-    "humanisation_suggestions": ["<specific rewrite suggestion for flagged passage>"],
-    "voice_consistency": "<does the writing maintain a consistent scholarly voice?>"
+    "academic_register": "<tone appropriate and consistent?>",
+    "humanisation_score": "<authentic voice, specific examples?>",
+    "generic_phrases_found": ["<hollow phrase quoted>"],
+    "humanisation_suggestions": ["<rewrite suggestion>"],
+    "voice_consistency": "<consistent scholarly voice?>"
   }},
   "golden_thread": "<RQ to methodology to results to conclusion coherence>",
   "kirkpatrick_level": {{
@@ -1476,19 +1476,19 @@ if st.session_state.get("_trigger_analysis"):
 
     try:
         status.write(f"🧠 Sending to {PRIMARY_MODEL}…")
-        raw = call_api_with_pdf(system, prompt, PRIMARY_MODEL)
+        raw = call_api_with_pdf(system, prompt, PRIMARY_MODEL, max_tok=6000)
         model_used = PRIMARY_MODEL
     except NotFoundError:
         status.write(f"⚠️ Falling back to {FALLBACK_MODEL}…")
         try:
-            raw = call_api_with_pdf(system, prompt, FALLBACK_MODEL)
+            raw = call_api_with_pdf(system, prompt, FALLBACK_MODEL, max_tok=6000)
             model_used = FALLBACK_MODEL
         except Exception:
-            raw = call_api_with_text(system, prompt, FALLBACK_MODEL)
+            raw = call_api_with_text(system, prompt, FALLBACK_MODEL, max_tok=6000)
             model_used = FALLBACK_MODEL + " (text)"
     except Exception as e:
         try:
-            raw = call_api_with_text(system, prompt, PRIMARY_MODEL)
+            raw = call_api_with_text(system, prompt, PRIMARY_MODEL, max_tok=6000)
             model_used = PRIMARY_MODEL + " (text)"
         except Exception as e2:
             status.update(label=f"Error: {e2}", state="error")
