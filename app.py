@@ -620,6 +620,27 @@ JOURNALS = [
     "Journal of Dental Hygiene Education",
 ]
 
+# ─── STUDY DESIGNS ────────────────────────────────────────────────────────────
+STUDY_DESIGNS = [
+    "Auto-detect from manuscript",
+    "Randomised Controlled Trial (RCT)",
+    "Non-randomised / Quasi-experimental",
+    "Cross-sectional Survey",
+    "Systematic Review / Meta-analysis",
+    "Qualitative Study",
+    "Mixed Methods",
+    "Case Study / Case Report",
+    "Theoretical / Conceptual Paper",
+    "Delphi Study",
+    "Program Evaluation",
+]
+
+# Criteria that only apply to specific design families
+QUANTITATIVE_ONLY   = {"sample_power", "instrument_validity"}
+QUALITATIVE_ONLY    = {"positionality", "transferability"}
+NOT_FOR_THEORETICAL = {"sample_power", "instrument_validity",
+                       "positionality", "transferability", "consort_srqr"}
+
 # ─── REVIEW CRITERIA ──────────────────────────────────────────────────────────
 REVIEW_CRITERIA = {
     "research_question": "Research question clarity & PICO/SPIDER framing",
