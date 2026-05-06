@@ -587,47 +587,8 @@ PRIMARY_MODEL  = "claude-opus-4-5"
 FALLBACK_MODEL = "claude-sonnet-4-5"
 CHAT_MODEL     = "claude-haiku-4-5-20251001"
 
-# ─── ACCESS CONTROL ───────────────────────────────────────────────────────────
-# One unique code per pilot partner. Add/remove as partnerships change.
-# Share each code privately with the respective journal contact only.
-VALID_ACCESS_CODES = {
-    # ── Your personal / admin access (unlimited analyses) ─────────
-    "DEMO-ACCESS":          "Demo / Internal Use",
-    "DENTEDTECH-ADMIN":     "DentEdTech Admin",
-    "DENTEDTECH-OWNER":     "DentEdTech Owner",
-    # ── ISI / Web of Science Indexed ──────────────────────────────
-    "MEDED-PILOT-2025":     "Medical Education (ISI)",
-    "ACADMED-PILOT-2025":   "Academic Medicine (ISI)",
-    "MT-PILOT-2025":        "Medical Teacher (ISI)",
-    "AHSE-PILOT-2025":      "Advances in Health Sciences Education (ISI)",
-    "JDR-PILOT-2025":       "Journal of Dental Research (ISI)",
-    "CDOE-PILOT-2025":      "Community Dentistry and Oral Epidemiology (ISI)",
-    "EJOS-PILOT-2025":      "European Journal of Oral Sciences (ISI)",
-    "JDS-PILOT-2025":       "Journal of Dental Sciences (ISI)",
-    # ── Scopus Indexed ────────────────────────────────────────────
-    "BMC-PILOT-2025":       "BMC Medical Education (Scopus)",
-    "JGME-PILOT-2025":      "JGME Journal of Graduate Medical Education (Scopus)",
-    "TLM-PILOT-2025":       "Teaching and Learning in Medicine (Scopus)",
-    "IJME-PILOT-2025":      "International Journal of Medical Education (Scopus)",
-    "GMS-PILOT-2025":       "GMS Journal for Medical Education (Scopus)",
-    "EFH-PILOT-2025":       "Education for Health (Scopus)",
-    "JEEHP-PILOT-2025":     "Journal of Educational Evaluation for Health Professions (Scopus)",
-    "MEP-PILOT-2025":       "MedEdPublish (Scopus)",
-    "DENTJ-PILOT-2025":     "Dentistry Journal MDPI (Scopus)",
-    # ── Dental Education Specialist ───────────────────────────────
-    "JDE-PILOT-2025":       "Journal of Dental Education (JDE)",
-    "EJDE-PILOT-2025":      "European Journal of Dental Education (EJDE)",
-    "BDJ-PILOT-2025":       "British Dental Journal (BDJ)",
-    "JDENT-PILOT-2025":     "Journal of Dentistry",
-    "ADEE-PILOT-2025":      "Dental Education Today (ADEE)",
-    "JDHE-PILOT-2025":      "Journal of Dental Hygiene Education",
-}
-
-# Admin codes — these get unlimited analyses (no session cap)
-ADMIN_CODES = {"DEMO-ACCESS", "DENTEDTECH-ADMIN", "DENTEDTECH-OWNER"}
-
-# Max AI analyses allowed per session for non-admin partners
-SESSION_ANALYSIS_CAP = 5
+# Access gate removed — platform is open access
+SESSION_ANALYSIS_CAP = 999
 
 # ─── JOURNALS ─────────────────────────────────────────────────────────────────
 JOURNALS = [
@@ -674,12 +635,12 @@ REVIEW_CRITERIA = {
 # ─── SESSION STATE ─────────────────────────────────────────────────────────────
 # Increment this version string any time you want to force all sessions to reset
 # (e.g. after a major deployment that adds new gates or changes access logic)
-APP_VERSION = "2.1.0"
+APP_VERSION = "3.0.0"
 
 defaults = {
-    "access_granted":        False,
-    "access_partner":        "",
-    "is_admin":              False,
+    "access_granted":        True,
+    "access_partner":        "Open Access",
+    "is_admin":              True,
     "consent_given":         False,
     "analyses_this_session": 0,
     "pdf_base64":            None,
@@ -713,65 +674,7 @@ for k, v in defaults.items():
 if st.session_state.session_start is None:
     st.session_state.session_start = datetime.datetime.utcnow()
 
-# ─── GATE 1: ACCESS CODE ──────────────────────────────────────────────────────
-if not st.session_state.access_granted:
-    st.markdown(
-        """
-        <div style="max-width:480px;margin:6rem auto 2rem;text-align:center;">
-          <div style="font-family:'Playfair Display',Georgia,serif;
-                      font-size:0.7rem;letter-spacing:0.3em;text-transform:uppercase;
-                      color:#8a9aaa;margin-bottom:1.5rem;">
-            Health Professions Education
-          </div>
-          <h1 style="font-family:'Playfair Display',Georgia,serif;
-                     font-size:2.6rem;font-weight:600;color:#0f2535;
-                     margin:0 0 0.3rem;letter-spacing:-0.02em;">
-            DentEdTech™
-          </h1>
-          <div style="font-family:'Source Serif 4',Georgia,serif;
-                      font-size:1rem;font-weight:300;font-style:italic;
-                      color:#6a7a8a;margin-bottom:2.5rem;">
-            Manuscript Intelligence Platform
-          </div>
-          <div style="width:40px;height:1px;background:#b5903a;margin:0 auto 2.5rem;"></div>
-          <p style="font-family:'Source Serif 4',Georgia,serif;
-                    font-size:0.88rem;color:#4a4540;line-height:1.8;margin-bottom:2rem;">
-            This platform is available to <strong>approved pilot partners</strong> only.<br>
-            Please enter your institutional access code to continue.
-          </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        code_input = st.text_input(
-            "Access code",
-            placeholder="Enter your access code",
-            type="password",
-            label_visibility="collapsed",
-        )
-        if st.button("Enter Platform →", use_container_width=True):
-            code = code_input.strip().upper()
-            if code in VALID_ACCESS_CODES:
-                st.session_state.access_granted = True
-                st.session_state.access_partner = VALID_ACCESS_CODES[code]
-                st.session_state.is_admin       = code in ADMIN_CODES
-                st.rerun()
-            else:
-                st.error(
-                    "Invalid access code. If you are a pilot partner and have not received "
-                    "your code, please contact [your email address]."
-                )
-        st.markdown(
-            "<div style='text-align:center;margin-top:1.5rem;"
-            "font-family:Source Serif 4,serif;font-size:0.78rem;"
-            "font-style:italic;color:#8a847a;'>"
-            "Not a pilot partner? <a href='mailto:your@email.com' "
-            "style='color:#1a3a4a;'>Contact us</a> to discuss a partnership.</div>",
-            unsafe_allow_html=True,
-        )
-    st.stop()
+# Gate 1 (access code) removed — platform is open access
 
 # ─── GATE 2: CONSENT ──────────────────────────────────────────────────────────
 if not st.session_state.consent_given:
@@ -795,11 +698,6 @@ if not st.session_state.consent_given:
           <div style="width:40px;height:1px;background:#b5903a;margin:0 auto 2rem;"></div>
           <div style="background:#f8f5ef;border:1px solid #e8e2d6;border-radius:4px;
                       padding:1.5rem 1.8rem;margin-bottom:1.5rem;">
-            <div style="font-family:'Source Serif 4',serif;font-size:0.75rem;
-                        letter-spacing:0.12em;text-transform:uppercase;color:#1d6b52;
-                        margin-bottom:0.8rem;">
-              ✓ Access granted &mdash; {st.session_state.access_partner}
-            </div>
             <div style="font-family:'Playfair Display',serif;font-size:1rem;
                         font-weight:600;color:#0f2535;margin-bottom:1rem;">
               Data &amp; Confidentiality Notice
@@ -831,21 +729,10 @@ if not st.session_state.consent_given:
 
 # ─── GATE 3: SESSION CAP ──────────────────────────────────────────────────────
 def check_session_cap() -> bool:
-    """Returns True if user can run another analysis. Admin users are always True."""
-    if st.session_state.is_admin:
-        return True
-    return st.session_state.analyses_this_session < SESSION_ANALYSIS_CAP
+    return True
 
 def show_cap_warning():
-    if st.session_state.is_admin:
-        return   # no warning for admin
-    remaining = SESSION_ANALYSIS_CAP - st.session_state.analyses_this_session
-    if remaining <= 1:
-        st.warning(
-            f"⚠️ You have **{remaining} analysis remaining** in this session. "
-            f"This platform is currently in pilot phase — please contact "
-            f"[DentEdTech™](mailto:your@email.com) to discuss extended access."
-        )
+    pass
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 def encode_pdf(uploaded_file) -> tuple[str, str, str]:
@@ -1445,24 +1332,7 @@ with st.sidebar:
     )
     st.caption(f"Partner: {st.session_state.access_partner}")
 
-    # Session cap indicator
-    if st.session_state.is_admin:
-        st.markdown(
-            "<div style='font-family:Source Serif 4,serif;font-size:0.72rem;"
-            "color:#8fd4b8;letter-spacing:0.06em;padding:0.3rem 0;'>"
-            "&#10022; Admin access &mdash; unlimited analyses</div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        used = st.session_state.analyses_this_session
-        remaining = SESSION_ANALYSIS_CAP - used
-        cap_pct = int(used / SESSION_ANALYSIS_CAP * 100)
-        st.progress(cap_pct / 100, text=f"Session usage: {used}/{SESSION_ANALYSIS_CAP} analyses")
-        if remaining == 0:
-            st.error(
-                "Session limit reached. "
-                "Contact [DentEdTech™](mailto:your@email.com) for extended access."
-            )
+    # Open access — no cap display
 
     with st.expander("🔒 Data & Privacy Status", expanded=False):
         st.markdown(
