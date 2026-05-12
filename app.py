@@ -768,6 +768,60 @@ def encode_pdf(uploaded_file) -> tuple[str, str, str]:
     return b64, text, sha
 
 
+def clean_text_for_similarity(text: str) -> str:
+    """
+    Strip references, bibliography, and tables from extracted text
+    before similarity analysis. These sections inflate similarity
+    scores artificially and are not meaningful for originality assessment.
+    """
+    import re
+
+    # ── Remove reference / bibliography section ───────────────────────────────
+    # Match common section headers (case-insensitive) and remove everything after
+    ref_pattern = re.compile(
+        r'\n\s*(?:references|bibliography|works cited|reference list|'
+        r'citations|literature cited|sources)'
+        r'\s*\n.*',
+        re.IGNORECASE | re.DOTALL
+    )
+    text = ref_pattern.sub('', text)
+
+    # Also strip numbered reference lines like [1] Author et al. or 1. Author et al.
+    text = re.sub(
+        r'\n\s*(?:\[\d+\]|\d{1,3}\.\s+)[A-Z][^\n]{20,}',
+        '', text
+    )
+
+    # ── Remove table content ──────────────────────────────────────────────────
+    # Strip lines that look like table rows (lots of whitespace/tabs between values)
+    text = re.sub(r'\n[^\n]{0,20}(?:\t|  {3,})[^\n]+', '', text)
+
+    # Strip lines that are mostly numbers/short codes (table data)
+    text = re.sub(r'\n\s*(?:[\d\.,%\(\)\s±<>–\-]{3,40}\s*){3,}\n', '\n', text)
+
+    # ── Remove figure/table captions ─────────────────────────────────────────
+    text = re.sub(
+        r'\n\s*(?:table|figure|fig\.|appendix)\s+\d+[^\n]*\n',
+        '\n', text, flags=re.IGNORECASE
+    )
+
+    # ── Clean up excess whitespace ────────────────────────────────────────────
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = text.strip()
+
+    return text
+
+
+def get_similarity_text() -> str:
+    """Get cleaned manuscript text for similarity analysis."""
+    raw = st.session_state.pdf_text
+    cleaned = clean_text_for_similarity(raw)
+    # Report what was removed
+    removed = len(raw) - len(cleaned)
+    pct = int(removed / max(len(raw), 1) * 100)
+    return cleaned, removed, pct
+
+
 def clear_session_data():
     sensitive_keys = [
         "pdf_base64", "pdf_name", "pdf_hash", "pdf_text",
@@ -1832,7 +1886,9 @@ with tab_similarity:
     st.info(
         "⚠️ **Disclaimer:** Searches open-access content only. "
         "Not equivalent to Turnitin or iThenticate. "
-        "Always use your institution's official similarity checker before submission."
+        "Always use your institution's official similarity checker before submission. "
+        "**References, tables, and captions are automatically excluded** from this analysis "
+        "to avoid artificial inflation of similarity scores."
     )
 
     if not DDG_AVAILABLE:
@@ -1856,25 +1912,33 @@ with tab_similarity:
         st.session_state.search_results    = []
 
         with st.status("Running similarity audit…", expanded=True) as ss:
-            ss.write("🔎 Step 1 — Extracting key phrases…")
-            queries = extract_search_queries(st.session_state.pdf_text)
+            ss.write("🔎 Step 1 — Cleaning text (removing references & tables)…")
+            cleaned_text, removed_chars, removed_pct = get_similarity_text()
+            ss.write(f"   Removed {removed_pct}% of text (references, tables, captions)")
+            ss.write("🔎 Step 2 — Extracting key phrases from manuscript body…")
+            queries = extract_search_queries(cleaned_text)
             ss.write(f"   {len(queries)} queries extracted")
 
             if DDG_AVAILABLE:
-                ss.write("🌐 Step 2 — Searching open-access publications…")
+                ss.write("🌐 Step 3 — Searching open-access publications…")
                 sr = search_web(queries)
                 st.session_state.search_results = sr
                 ss.write(f"   {len(sr)} papers found")
             else:
                 sr = []
-                ss.write("⚠️ Step 2 — Web search skipped")
+                ss.write("⚠️ Step 3 — Web search skipped")
 
-            ss.write("🧠 Step 3 — AI originality analysis…")
+            ss.write("🧠 Step 4 — AI originality analysis (references & tables excluded)…")
             sim_prompt  = build_similarity_prompt(sr)
             sim_system  = (
                 "You are an academic integrity specialist. Analyse manuscripts for "
                 "similarity risks, boilerplate, paraphrase patterns, and published overlap. "
-                "Be precise, quote passages, never fabricate."
+                "Be precise, quote passages, never fabricate. "
+                "IMPORTANT: The text has already had its references section and tables removed. "
+                "Focus ONLY on the manuscript body — introduction, methods, results, discussion. "
+                "Do NOT flag methodology descriptions as boilerplate unless the exact phrasing "
+                "is copied verbatim from another source. "
+                "Do NOT flag standard statistical terminology or clinical definitions as similarity risks."
             )
             sim_raw = None
             try:
@@ -1882,7 +1946,11 @@ with tab_similarity:
             except Exception as e:
                 ss.write(f"⚠️ PDF mode failed ({e}) — text mode…")
                 try:
+                    # Use cleaned text (no references/tables) for text-mode similarity
+                    _orig = st.session_state.pdf_text
+                    st.session_state.pdf_text = cleaned_text
                     sim_raw = call_api_with_text(sim_system, sim_prompt, FALLBACK_MODEL, max_tok=8000)
+                    st.session_state.pdf_text = _orig
                 except Exception as e2:
                     ss.update(label=f"Error: {e2}", state="error"); st.stop()
 
