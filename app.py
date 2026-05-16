@@ -2385,10 +2385,12 @@ with tab_humanise:
     )
 
     st.info(
-        "**What this does:** This tool rewrites academic text to sound like the work of a "
-        "confident, experienced HPE researcher — specific, evidence-grounded, and free of "
-        "hollow phrases. It is benchmarked against published papers in JDE, EJDE, Medical Teacher, "
-        "and Medical Education. Your argument and findings are preserved exactly."
+        "**What this does:** Rewrites academic text to sound like the work of a confident, "
+        "experienced HPE researcher — specific, evidence-grounded, and free of hollow phrases "
+        "or AI-style patterns. Three modes: **Polish** (light touch), **Full rewrite** "
+        "(restructure and de-formulaise), or **Synthesise references** (weave pasted abstracts "
+        "and key findings directly into the prose as grounded claims). "
+        "Your argument and findings are always preserved."
     )
 
     col_ex1, col_ex2 = st.columns(2)
@@ -2420,86 +2422,142 @@ with tab_humanise:
 
     st.divider()
 
-    hum_section = st.selectbox(
-        "Which section are you working on?",
-        ["Introduction", "Methods", "Results", "Discussion", "Abstract",
-         "Conclusion", "Literature Review", "Other"],
-    )
+    col_sec, col_jour = st.columns(2)
+    with col_sec:
+        hum_section = st.selectbox(
+            "Which section are you working on?",
+            ["Introduction", "Methods", "Results", "Discussion", "Abstract",
+             "Conclusion", "Literature Review", "Other"],
+        )
+    with col_jour:
+        hum_target = st.selectbox(
+            "Target journal register",
+            ["Journal of Dental Education (JDE)",
+             "European Journal of Dental Education (EJDE)",
+             "Medical Teacher",
+             "Medical Education",
+             "BMC Medical Education",
+             "General HPE journal"],
+        )
 
-    hum_target = st.selectbox(
-        "Target journal register",
-        ["Journal of Dental Education (JDE)",
-         "European Journal of Dental Education (EJDE)",
-         "Medical Teacher",
-         "Medical Education",
-         "BMC Medical Education",
-         "General HPE journal"],
-    )
-
-    hum_instruction = st.text_area(
-        "Any specific instruction? (optional)",
-        placeholder="e.g. Keep the first sentence as is. Make the limitation paragraph more specific. "
-                    "Do not change any statistics or findings.",
-        height=70,
-    )
+    col_mode, col_inst = st.columns([1, 2])
+    with col_mode:
+        hum_mode = st.selectbox(
+            "Rewrite mode",
+            ["Polish", "Full rewrite", "Synthesise references"],
+            help=(
+                "Polish — light touch; improve clarity and voice while keeping structure.\n"
+                "Full rewrite — restructure fully; replace all generic phrasing.\n"
+                "Synthesise references — weave the pasted reference content into the text "
+                "as grounded, specific claims."
+            ),
+        )
+    with col_inst:
+        hum_instruction = st.text_area(
+            "Specific instruction (optional)",
+            placeholder="e.g. Keep the first sentence unchanged. Make the limitation paragraph "
+                        "more specific. Do not alter any statistics.",
+            height=70,
+        )
 
     hum_input = st.text_area(
-        "Paste the text you want to humanise",
+        "Paste the text you want to rewrite",
         placeholder="Paste your paragraph or section here...",
-        height=220,
+        height=200,
     )
 
-    col_btn1, col_btn2 = st.columns([2, 1])
-    with col_btn1:
-        run_humanise = st.button(
-            "✍️ Humanise This Text →",
-            disabled=not hum_input.strip(),
-            use_container_width=True,
-        )
-    with col_btn2:
-        hum_mode = st.selectbox(
-            "Mode", ["Polish", "Full rewrite"], label_visibility="collapsed"
-        )
+    hum_refs = st.text_area(
+        "References to synthesise (optional — paste abstracts, key findings, or citation strings)",
+        placeholder=(
+            "Paste one or more references here in any format:\n"
+            "• Full abstracts — the AI will extract and weave in specific findings\n"
+            "• Key sentences from a paper — used to ground claims\n"
+            "• Citation strings only (APA/Vancouver) — acknowledged but content not readable\n\n"
+            "Example:\nSmith et al. (2023). Abstract: This RCT (n=142) found that simulation-based "
+            "training improved procedural accuracy by 34% vs. traditional instruction (p<0.01)..."
+        ),
+        height=160,
+    )
+
+    run_humanise = st.button(
+        "✍️ Rewrite →",
+        disabled=not hum_input.strip(),
+        use_container_width=True,
+    )
 
     if run_humanise and hum_input.strip():
-        mode_instruction = (
-            "Lightly polish the text — improve clarity, remove generic phrases, "
-            "strengthen the academic voice — but preserve the original structure and most wording."
-            if hum_mode == "Polish"
-            else
-            "Fully rewrite the text with an authentic academic voice — restructure sentences, "
-            "replace all generic phrases, and make the writing specific and evidence-grounded — "
-            "while preserving every factual claim, finding, and argument."
+        if hum_mode == "Polish":
+            mode_instruction = (
+                "Lightly polish the text — improve clarity, tighten phrasing, remove generic "
+                "and hollow expressions — but preserve the original structure and most wording."
+            )
+        elif hum_mode == "Full rewrite":
+            mode_instruction = (
+                "Fully rewrite the text. Restructure sentences for varied rhythm (mix short "
+                "declarative sentences with longer analytical ones). Replace every generic phrase "
+                "with specific, concrete language. Preserve every factual claim, finding, and argument."
+            )
+        else:  # Synthesise references
+            mode_instruction = (
+                "Rewrite the text while actively synthesising the provided reference content. "
+                "Replace vague or unsupported claims with specific findings drawn from the references. "
+                "Integrate key statistics, study designs, or conclusions from the references directly "
+                "into the prose — do not just add citations at the end of sentences. "
+                "The result should read as a densely evidence-grounded paragraph where every major "
+                "claim is anchored to a specific result from the literature."
+            )
+
+        refs_block = (
+            f"\n\nREFERENCES TO SYNTHESISE:\n{hum_refs.strip()}"
+            if hum_refs.strip() else ""
         )
 
         hum_system = (
             f"You are an expert academic writing editor specialising in health professions education "
-            f"and dental education research. You help researchers improve their writing so it reads "
-            f"like high-quality published work in {hum_target}. "
-            f"Your benchmark is papers published in JDE, EJDE, Medical Teacher, and Medical Education — "
-            f"writing that is precise, specific, evidence-grounded, appropriately hedged, and free of "
-            f"formulaic or AI-generated language. "
-            f"You NEVER change findings, statistics, citations, or the scholarly argument. "
-            f"You replace hollow phrases ('it is worth noting', 'this study contributes to the literature', "
-            f"'valuable insights', 'important implications') with specific, concrete language. "
-            f"You favour active voice where appropriate. You maintain a consistent scholarly register. "
-            f"You write as a senior HPE researcher, not as a generic assistant."
+            f"and dental education research. You rewrite text so it reads like high-quality work "
+            f"published in {hum_target}. "
+            f"\n\nSTYLE BENCHMARK: papers in JDE, EJDE, Medical Teacher, and Medical Education — "
+            f"precise, specific, evidence-grounded, appropriately hedged, and distinctly human in voice."
+            f"\n\nHARD RULES:"
+            f"\n- NEVER change findings, statistics, or the scholarly argument."
+            f"\n- NEVER start a sentence with: Furthermore, Moreover, Additionally, Notably, "
+            f"Importantly, It is worth noting, It should be noted, In conclusion, In summary."
+            f"\n- NEVER use: 'contributes to the literature', 'valuable insights', "
+            f"'important implications', 'sheds light on', 'this study aims to', "
+            f"'delve into', 'underscore', 'leverage', 'robust', 'holistic'."
+            f"\n- NEVER use symmetrical parallel lists of three ('X, Y, and Z') as a rhetorical "
+            f"device — they signal AI-generated text."
+            f"\n- NEVER pad with hedges-on-hedges ('could potentially be argued to suggest')."
+            f"\n- DO vary sentence length: mix short direct statements (under 15 words) with "
+            f"longer analytical sentences (25–40 words). Monotone sentence length is a strong "
+            f"AI-writing signal."
+            f"\n- DO use active voice where the agent is clear."
+            f"\n- DO ground every claim in a specific finding, number, mechanism, or named study "
+            f"— not a generalisation."
+            f"\n- DO write as a senior HPE researcher who has read and thought carefully about "
+            f"the evidence — not as a generic writing assistant."
         )
 
         hum_user = (
             f"Section: {hum_section}\n"
             f"Target journal: {hum_target}\n"
             f"Mode: {mode_instruction}\n"
-            + (f"Specific instruction: {hum_instruction}\n" if hum_instruction.strip() else "")
-            + f"\nTEXT TO HUMANISE:\n{hum_input}\n\n"
-            f"Return ONLY:\n"
-            f"1. The rewritten text (no preamble, no commentary)\n"
-            f"2. Then a blank line\n"
-            f"3. Then a brief bulleted list (max 5 items) of what you changed and why, "
+            + (f"Author instruction: {hum_instruction}\n" if hum_instruction.strip() else "")
+            + f"\nTEXT TO REWRITE:\n{hum_input}"
+            + refs_block
+            + f"\n\nReturn ONLY:\n"
+            f"1. The rewritten text (no preamble, no label, no commentary)\n"
+            f"2. A blank line\n"
+            f"3. A brief bulleted list (max 5 items) of what you changed and why, "
             f"prefixed with '---CHANGES---'"
         )
 
-        with st.spinner("Rewriting with an authentic scholarly voice..."):
+        spinner_msg = (
+            "Synthesising references into rewritten text..."
+            if hum_mode == "Synthesise references"
+            else "Rewriting with an authentic scholarly voice..."
+        )
+        with st.spinner(spinner_msg):
             try:
                 resp = client.messages.create(
                     model=FALLBACK_MODEL,
@@ -2582,7 +2640,8 @@ with tab_humanise:
 
     st.divider()
     st.caption(
-        "The humanised text preserves all your findings, arguments, and citations. "
-        "Always review the output carefully before submitting. "
+        "The rewritten text preserves all your findings, arguments, and citations. "
+        "When synthesising references, verify that any specific figures or findings "
+        "quoted from the pasted abstracts are accurate before submitting. "
         "DentEdTech™ · akhalifah@taibahu.edu.sa"
     )
