@@ -987,30 +987,39 @@ def build_similarity_prompt(search_results: list[dict]) -> str:
     return f"""You are an academic integrity and publication similarity specialist.
 Analyse this manuscript for originality and similarity risks.
 
-1. SIMILARITY TO PUBLISHED LITERATURE: Using the search results below, assess overlap
-   with already-published papers. For each similar paper explain what overlaps and
-   what the authors should do to differentiate.
+CRITICAL DEFINITIONS — apply these strictly:
+- SIMILARITY RISK = verbatim copying or sentence-by-sentence paraphrase of another source (7+ consecutive matching/paraphrased words). Sharing a topic, research question, or methodology is NOT similarity.
+- BOILERPLATE = exact or near-exact phrases copied verbatim from another source. Standard academic phrases ("the results suggest", "this study aims to"), common methodology descriptions, and discipline-standard terminology are NOT boilerplate.
+- TOPIC OVERLAP = papers covering the same research area. This is normal and is NOT a similarity risk by itself.
 
-2. INTERNAL ORIGINALITY AUDIT: Identify passages that are boilerplate, contain
-   factual claims with no citation, show style changes suggesting imported text,
-   or repeat between sections.
+PERCENTAGE CALIBRATION:
+- 0–15%: Genuinely original manuscript (expected for well-written original work)
+- 16–30%: Normal topic/methodology overlap with related literature (common and acceptable)
+- 31–50%: Paraphrase or framing concerns — some rewriting recommended
+- 51–70%: Significant copying risk — substantial revision required
+- 71–100%: Serious integrity concern — near-verbatim copying detected
 
-3. METHODS SECTION RISK: Assess whether the methods reads as original or copied.
+TASKS:
+1. SIMILARITY TO PUBLISHED LITERATURE: For each search result below, assess whether there is actual TEXT overlap (verbatim or close paraphrase), not merely topic similarity. Only flag as High risk if text is clearly copied or paraphrased sentence-by-sentence.
 
-4. OVERALL RISK with specific rewrite advice.
+2. BOILERPLATE AUDIT: Flag ONLY passages where the exact wording appears to be lifted from another source. Do NOT flag standard academic phrasing, methodology descriptions, or terminology that any author in this field would use.
+
+3. METHODS SECTION: Assess only whether specific procedural text appears copied verbatim — not whether the methods are common or standard.
+
+4. OVERALL RISK: Based on actual text copying evidence, not topic overlap.
 {search_block}
 
 Return ONLY a valid JSON object — no markdown, no preamble:
 
 {{
   "overall_risk_level": "Low | Moderate | High | Very High",
-  "estimated_similarity_risk_percent": <integer 0-100>,
+  "estimated_similarity_risk_percent": <integer 0-100 — calibrated per the scale above; typical original manuscripts score 10–25%>,
   "disclaimer": "AI-based risk assessment only. Not equivalent to Turnitin or iThenticate. Always use your institution's official similarity checker before submission.",
   "similar_publications": [
     {{
       "title": "<title>",
       "url": "<url>",
-      "overlap_description": "<what overlaps>",
+      "overlap_description": "<describe SPECIFIC text overlap, not just topic similarity>",
       "overlap_type": "topic | methodology | findings | framing | significant overlap",
       "risk_level": "Low | Moderate | High",
       "recommendation": "<what authors should do>"
@@ -1019,8 +1028,8 @@ Return ONLY a valid JSON object — no markdown, no preamble:
   "boilerplate_sections": [
     {{
       "section": "<where>",
-      "passage": "<quoted text>",
-      "risk": "<why high risk>",
+      "passage": "<verbatim passage that appears copied>",
+      "risk": "<specific source or reason this is verbatim copying>",
       "suggestion": "<how to rewrite>"
     }}
   ],
@@ -1037,7 +1046,7 @@ Return ONLY a valid JSON object — no markdown, no preamble:
       "appears_in": ["<section 1>", "<section 2>"]
     }}
   ],
-  "methods_risk": "<assessment of methods originality>",
+  "methods_risk": "<assessment — only flag if specific procedural text appears verbatim-copied, not just because methods are standard>",
   "priority_rewrites": ["<specific rewrite instruction>"],
   "submission_readiness": "<overall verdict and advice>"
 }}"""
@@ -1931,26 +1940,28 @@ with tab_similarity:
             ss.write("🧠 Step 4 — AI originality analysis (references & tables excluded)…")
             sim_prompt  = build_similarity_prompt(sr)
             sim_system  = (
-                "You are an academic integrity specialist. Analyse manuscripts for "
-                "similarity risks, boilerplate, paraphrase patterns, and published overlap. "
+                "You are an academic integrity specialist. Assess manuscripts for actual "
+                "text similarity — verbatim copying and close paraphrase only. "
                 "Be precise, quote passages, never fabricate. "
-                "IMPORTANT: The text has already had its references section and tables removed. "
-                "Focus ONLY on the manuscript body — introduction, methods, results, discussion. "
-                "Do NOT flag methodology descriptions as boilerplate unless the exact phrasing "
-                "is copied verbatim from another source. "
-                "Do NOT flag standard statistical terminology or clinical definitions as similarity risks."
+                "Topic overlap, shared methodology, and common academic phrasing are NOT "
+                "similarity risks. Only flag text where 7+ consecutive words are copied or "
+                "paraphrased sentence-by-sentence from an identifiable source. "
+                "Standard statistical terminology, clinical definitions, and discipline-standard "
+                "methodology descriptions must NOT be flagged as boilerplate or similarity risks. "
+                "Calibrate your percentage estimate conservatively: a well-written original "
+                "manuscript typically scores 10–25%."
             )
             sim_raw = None
             try:
-                sim_raw = call_api_with_pdf(sim_system, sim_prompt, FALLBACK_MODEL, max_tok=8000)
+                # Always use cleaned text (references/tables already removed) for similarity
+                _orig = st.session_state.pdf_text
+                st.session_state.pdf_text = cleaned_text
+                sim_raw = call_api_with_text(sim_system, sim_prompt, FALLBACK_MODEL, max_tok=8000)
+                st.session_state.pdf_text = _orig
             except Exception as e:
-                ss.write(f"⚠️ PDF mode failed ({e}) — text mode…")
+                ss.write(f"⚠️ Text mode failed ({e}) — trying PDF mode…")
                 try:
-                    # Use cleaned text (no references/tables) for text-mode similarity
-                    _orig = st.session_state.pdf_text
-                    st.session_state.pdf_text = cleaned_text
-                    sim_raw = call_api_with_text(sim_system, sim_prompt, FALLBACK_MODEL, max_tok=8000)
-                    st.session_state.pdf_text = _orig
+                    sim_raw = call_api_with_pdf(sim_system, sim_prompt, FALLBACK_MODEL, max_tok=8000)
                 except Exception as e2:
                     ss.update(label=f"Error: {e2}", state="error"); st.stop()
 
